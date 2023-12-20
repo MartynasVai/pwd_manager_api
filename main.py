@@ -2,12 +2,14 @@ from flask import Flask, jsonify, redirect, url_for
 from flask_dance.contrib.google import make_google_blueprint, google
 import os
 
+# Set the OAUTHLIB_INSECURE_TRANSPORT environment variable
+os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
+
 app = Flask(__name__)
 
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
 app.config["GOOGLE_OAUTH_CLIENT_ID"] = os.getenv("google_client_id")
 app.config["GOOGLE_OAUTH_CLIENT_SECRET"] = os.getenv("google_client_secret")
-app.config["OAUTHLIB_INSECURE_TRANSPORT"] = 1 #HTTP INSTEAD OF HTTPS !!!!!!!!!!!!!!!!!!!!!!!
 
 google_bp = make_google_blueprint(scope=["profile", "email"])
 app.register_blueprint(google_bp, url_prefix="/login")
