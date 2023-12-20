@@ -1,8 +1,10 @@
 from flask import Flask, jsonify, redirect, url_for
 from flask_dance.contrib.google import make_google_blueprint, google
+from flask_talisman import Talisman
 import os
 
 app = Flask(__name__)
+Talisman(app)
 
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
 app.config["GOOGLE_OAUTH_CLIENT_ID"] = os.getenv("google_client_id")
