@@ -17,9 +17,9 @@ app.register_blueprint(google_bp, url_prefix="/login")
 @app.route('/')
 def index():
     if not google.authorized:
-        return redirect(url_for("google.login"))
-    resp = google.get("/oauth2/v1/userinfo")
-    return jsonify(resp.json())
+        return "NOT LOGGED IN"
+    else:
+        return "Logged in"
 
 if __name__ == '__main__':
     app.run(debug=True, port=os.getenv("PORT", default=5000))
