@@ -8,12 +8,14 @@ from flask import Flask, jsonify, request
 from pymongo import MongoClient
 import json
 import base64
+import hashlib
 
         # Replace the placeholders with your actual valuess
 MONGOHOST = "monorail.proxy.rlwy.net"
 MONGOPORT = "55890"
 MONGOUSER = "mongo"
 MONGOPASSWORD = "ChghdfdGBbChhfCCh-DeDBCd26A53GbC"
+PEPPER = "917fb97bd62f96e619f4da5036f777c4"
 # Create a connection string
 connection_string = f"mongodb://{MONGOUSER}:{MONGOPASSWORD}@{MONGOHOST}:{MONGOPORT}"
 try:
@@ -31,6 +33,15 @@ usercollection=db["USERS"]
 #data = {"message": "HELLO world"}
 # Insert the data into the collection
 #collection.insert_one(data)
+
+def hash_with_pepper(password,pepper):
+
+    hashed_password = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), pepper, 100000)
+
+
+    return hashed_password
+
+
 
 def decode_base64(encoded_data):
     return base64.b64decode(encoded_data)
@@ -59,6 +70,10 @@ def register():
     encrypted_private_key = decode_base64(user_data.get('encrypted_private_key'))
     password_hash = decode_base64(user_data.get('password_hash'))
     password_salt = decode_base64(user_data.get('password_salt'))
+
+
+    password_hash=hash_with_pepper(password_hash,PEPPER)
+
 
     # Check if the username already exists in the database
     existing_user = usercollection.find_one({'username': username})
