@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, redirect, url_for, request
+from flask import Flask, jsonify, redirect, url_for, request, session
 import os
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure
@@ -9,6 +9,8 @@ from pymongo import MongoClient
 import json
 import base64
 import hashlib
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from cryptography.hazmat.primitives.asymmetric import rsa
 
         # Replace the placeholders with your actual valuess
 MONGOHOST = "monorail.proxy.rlwy.net"
@@ -45,27 +47,103 @@ def hash_with_pepper(password,pepper):
 
 def decode_base64(encoded_data):
     return base64.b64decode(encoded_data)
-
+#set session time to 10 minutes
 app = Flask(__name__)
+@app.route('/login', methods=['GET'])
+def login():
+    # Get parameters from the request
+    action = request.args.get('action')
+    username = request.args.get('username')
 
-@app.route('/getsalt')
-def getsalt():
-    
-    #get the salt
-    return jsonify("skrr gang gang")
+    # Check for invalid login attempts
+    if invalid_login(username):
+        return jsonify({'message': 'Too many invalid login attempts. Try again later.'}), 403
 
-@app.route('/login')
-def checkhash():
-    #check if session exists with bad login attempt is 3+ attempts
-    #if too many bad logins then return try again later
-    
-    #hash with pepper
+    if action == 'get_salt':
+        # Retrieve password_salt from MongoDB based on the username
+        user_data = usercollection.find_one({'username': username})
+        if user_data:
+            password_salt = user_data.get('password_salt')
+            return jsonify({'password_salt': password_salt}), 200
+        else:
+            return jsonify({'message': 'User not found'}), 404
 
-    #if hashing is correct return good iv, encrypted private key, salt
+    elif action == 'check_hash':
+        # Get parameters from the request
+        password_hash = request.args.get('password_hash')
 
-    #if no return bad login and save to session +1 last bad login attempt(session lasts 10 minutes if it doesn't exist create one with 1 bad login)
-    return jsonify("skrr gang gang")
+        # Retrieve password_hash from MongoDB based on the username
+        user_data = usercollection.find_one({'username': username, 'password_hash': password_hash})
+        if user_data:
+            # If password hash is correct, reset invalid login attempts
+            reset_invalid_login(username)
 
+            # Retrieve additional data
+            encrypted_private_key = user_data.get('encrypted_private_key')
+            iv = user_data.get('iv')
+            password_salt = user_data.get('password_salt')
+            return jsonify({
+                'encrypted_private_key': encrypted_private_key,
+                'iv': iv,
+                'password_salt': password_salt
+            }), 200
+        else:
+            # Increment invalid login attempts
+            increment_invalid_login(username)
+            return jsonify({'message': 'Invalid credentials'}), 401
+
+    elif action == 'verify':
+        # Get parameters from the request
+        signed_message = request.args.get('signed_message')
+
+        # Retrieve public_key from MongoDB based on the username
+        user_data = usercollection.find_one({'username': username})
+        if user_data:
+            public_key = user_data.get('public_key')
+
+            # Verify the signed message using the public key
+            if verify_signature(public_key, signed_message):
+                return jsonify({'message': 'Login attempt successful'}), 200
+            else:
+                return jsonify({'message': 'Signature verification failed'}), 401
+        else:
+            return jsonify({'message': 'User not found'}), 404
+
+    else:
+        return jsonify({'message': 'Invalid action'}), 400
+    #return jsonify("skrr gang gang")
+def invalid_login(username):
+    # Check if the session variable for the username exists
+    if 'invalid_login_count' not in session:
+        # If it doesn't exist, initialize it to 0
+        session['invalid_login_count'] = {username: 0}
+
+    # Check if the username is present in the session variable
+    if username not in session['invalid_login_count']:
+        # If it doesn't exist for the current username, initialize it to 0
+        session['invalid_login_count'][username] = 0
+
+    # Check if the invalid login count exceeds the threshold (4)
+    return session['invalid_login_count'][username] > 4
+
+def increment_invalid_login(username):
+    # Increment the invalid login count for the username
+    session['invalid_login_count'][username] += 1
+
+def reset_invalid_login(username):
+    # Reset the invalid login count for the username
+    session['invalid_login_count'][username] = 0
+
+def verify_signature(public_key, signed_message):
+    # Verify the signed message using the public key
+    #key = RSA.import_key(base64.b64decode(public_key))
+    #h = SHA256.new(signed_message.encode('utf-8'))
+    #try:
+    #    pkcs1_15.new(key).verify(h, base64.b64decode(signed_message))
+    #    return True
+    #except (ValueError, TypeError, pkcs1_15.VerificationError):
+    #    return False
+    return True
 
 
 
