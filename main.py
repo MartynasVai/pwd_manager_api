@@ -36,7 +36,7 @@ usercollection=db["USERS"]
 
 def hash_with_pepper(password,pepper):
 
-    hashed_password = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), pepper, 100000)
+    hashed_password = hashlib.pbkdf2_hmac('sha256', password, pepper.encode('utf-8'), 100000)
 
 
     return hashed_password
@@ -47,6 +47,29 @@ def decode_base64(encoded_data):
     return base64.b64decode(encoded_data)
 
 app = Flask(__name__)
+
+@app.route('/getsalt')
+def getsalt():
+    
+    #get the salt
+    return jsonify("skrr gang gang")
+
+@app.route('/login')
+def checkhash():
+    #check if session exists with bad login attempt is 3+ attempts
+    #if too many bad logins then return try again later
+    
+    #hash with pepper
+
+    #if hashing is correct return good iv, encrypted private key, salt
+
+    #if no return bad login and save to session +1 last bad login attempt(session lasts 10 minutes if it doesn't exist create one with 1 bad login)
+    return jsonify("skrr gang gang")
+
+
+
+
+
 @app.route('/getkey/')
 def getkey():
     # Return the public key as part of a JSON response
