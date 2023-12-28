@@ -46,7 +46,12 @@ def hash_with_pepper(password,pepper):
 
 
 def decode_base64(encoded_data):
+        # Add padding to make the length a multiple of 4
+    padding_length = len(encoded_data) % 4
+    encoded_data += '=' * (4 - padding_length)
+
     return base64.b64decode(encoded_data)
+
 #set session time to 10 minutes
 app = Flask(__name__)
 @app.route('/login', methods=['GET'])
@@ -56,43 +61,54 @@ def login():
     username = request.args.get('username')
 
     # Check for invalid login attempts
-    if invalid_login(username):
-        return jsonify({'message': 'Too many invalid login attempts. Try again later.'}), 403
+    #if invalid_login(username):
+    #    return jsonify({'message': 'Too many invalid login attempts. Try again later.'}), 403
 
     if action == 'get_salt':
         # Retrieve password_salt from MongoDB based on the username
         user_data = usercollection.find_one({'username': username})
         if user_data:
             password_salt = user_data.get('password_salt')
-            return jsonify({'password_salt': password_salt}), 200
+            base64_encoded_password_salt = base64.b64encode(password_salt).decode('utf-8')
+            return jsonify({'password_salt': base64_encoded_password_salt}), 200
         else:
             return jsonify({'message': 'User not found'}), 404
 
     elif action == 'check_hash':
         # Get parameters from the request
         password_hash = request.args.get('password_hash')
-
+        password_hash = decode_base64(password_hash)
+        print(password_hash)
+        print("/n\n ^^^^^ password hash ")
+        password_hash = hash_with_pepper(password_hash,PEPPER)
+        print(password_hash)
+        print("/n\n ^^^^^ password hash ")
         # Retrieve password_hash from MongoDB based on the username
         user_data = usercollection.find_one({'username': username, 'password_hash': password_hash})
         if user_data:
             # If password hash is correct, reset invalid login attempts
-            reset_invalid_login(username)
+            #reset_invalid_login(username)
 
-            # Retrieve additional data
             encrypted_private_key = user_data.get('encrypted_private_key')
             iv = user_data.get('iv')
             password_salt = user_data.get('password_salt')
+
+            # Base64 encode the parameters
+            encrypted_private_key_b64 = base64.b64encode(encrypted_private_key).decode('utf-8')
+            iv_b64 = base64.b64encode(iv).decode('utf-8')
+            password_salt_b64 = base64.b64encode(password_salt).decode('utf-8')
+
             return jsonify({
-                'encrypted_private_key': encrypted_private_key,
-                'iv': iv,
-                'password_salt': password_salt
+                'encrypted_private_key': encrypted_private_key_b64,
+                'iv': iv_b64,
+                'password_salt': password_salt_b64
             }), 200
         else:
             # Increment invalid login attempts
-            increment_invalid_login(username)
+            #increment_invalid_login(username)
             return jsonify({'message': 'Invalid credentials'}), 401
 
-    elif action == 'verify':
+    elif action == 'verify':###########################################################################TODO: FINISH LOGIN
         # Get parameters from the request
         signed_message = request.args.get('signed_message')
 
@@ -172,9 +188,16 @@ def register():
     password_hash = decode_base64(user_data.get('password_hash'))
     password_salt = decode_base64(user_data.get('password_salt'))
 
+    print(password_salt)
+    print("/n\n ^^^^^ password hash ")
+
+
+    print(password_hash)
+    print("/n\n ^^^^^ password hash ")
 
     password_hash=hash_with_pepper(password_hash,PEPPER)
-
+    print(password_hash)
+    print("/n\n ^^^^^ password hash ")
 
     # Check if the username already exists in the database
     existing_user = usercollection.find_one({'username': username})
