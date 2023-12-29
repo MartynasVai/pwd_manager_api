@@ -11,6 +11,10 @@ import base64
 import hashlib
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import padding, rsa
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import serialization
 
         # Replace the placeholders with your actual valuess
 MONGOHOST = "monorail.proxy.rlwy.net"
@@ -46,11 +50,22 @@ def hash_with_pepper(password,pepper):
 
 
 def decode_base64(encoded_data):
-        # Add padding to make the length a multiple of 4
+    # Add extra padding to make the length a multiple of 4
     padding_length = len(encoded_data) % 4
-    encoded_data += '=' * (4 - padding_length)
+    encoded_data += '=' * ((4 - padding_length) % 4)
 
-    return base64.b64decode(encoded_data)
+    # Decode URL-safe base64 with automatic padding
+    try:
+        decoded_data = base64.urlsafe_b64decode(encoded_data)
+        return decoded_data
+    except Exception as e:
+        print(f"Error decoding base64: {e}")
+        return None
+
+def encode_base64(data):
+    # Encode using URL-safe base64
+    encoded_data = base64.urlsafe_b64encode(data)
+    return encoded_data  # Convert bytes to string
 
 #set session time to 10 minutes
 app = Flask(__name__)
@@ -69,7 +84,7 @@ def login():
         user_data = usercollection.find_one({'username': username})
         if user_data:
             password_salt = user_data.get('password_salt')
-            base64_encoded_password_salt = base64.b64encode(password_salt).decode('utf-8')
+            base64_encoded_password_salt = encode_base64(password_salt).decode('utf-8')
             return jsonify({'password_salt': base64_encoded_password_salt}), 200
         else:
             return jsonify({'message': 'User not found'}), 404
@@ -91,17 +106,17 @@ def login():
 
             encrypted_private_key = user_data.get('encrypted_private_key')
             iv = user_data.get('iv')
-            password_salt = user_data.get('password_salt')
+            salt = user_data.get('salt')
 
             # Base64 encode the parameters
-            encrypted_private_key_b64 = base64.b64encode(encrypted_private_key).decode('utf-8')
-            iv_b64 = base64.b64encode(iv).decode('utf-8')
-            password_salt_b64 = base64.b64encode(password_salt).decode('utf-8')
+            encrypted_private_key_b64 = encode_base64(encrypted_private_key).decode('utf-8')
+            iv_b64 = encode_base64(iv).decode('utf-8')
+            salt_b64 = encode_base64(salt).decode('utf-8')
 
             return jsonify({
                 'encrypted_private_key': encrypted_private_key_b64,
                 'iv': iv_b64,
-                'password_salt': password_salt_b64
+                'salt': salt_b64
             }), 200
         else:
             # Increment invalid login attempts
@@ -110,15 +125,19 @@ def login():
 
     elif action == 'verify':###########################################################################TODO: FINISH LOGIN
         # Get parameters from the request
-        signed_message = request.args.get('signed_message')
-
+        #signed_message = decode_base64(request.args.get('signed_message'))
+        signature = request.args.get('signature')
         # Retrieve public_key from MongoDB based on the username
         user_data = usercollection.find_one({'username': username})
         if user_data:
             public_key = user_data.get('public_key')
+            print("FROM DATABASE \n\n\n\n\n\n\n\n\n\n")
+            print(public_key)
+            print("FROM DATABASE \n\n\n\n\n\n\n\n\n\n")
 
             # Verify the signed message using the public key
-            if verify_signature(public_key, signed_message):
+            print(username.encode('utf-8'))
+            if verify_signature(public_key, signature, username):
                 return jsonify({'message': 'Login attempt successful'}), 200
             else:
                 return jsonify({'message': 'Signature verification failed'}), 401
@@ -150,16 +169,35 @@ def reset_invalid_login(username):
     # Reset the invalid login count for the username
     session['invalid_login_count'][username] = 0
 
-def verify_signature(public_key, signed_message):
-    # Verify the signed message using the public key
-    #key = RSA.import_key(base64.b64decode(public_key))
-    #h = SHA256.new(signed_message.encode('utf-8'))
-    #try:
-    #    pkcs1_15.new(key).verify(h, base64.b64decode(signed_message))
-    #    return True
-    #except (ValueError, TypeError, pkcs1_15.VerificationError):
-    #    return False
-    return True
+def verify_signature(public_key_bytes, signature, message):
+    
+    print(signature)
+    #public_key_bytes=b"-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvsnmUM0ZDplkMoFEiDGb\npyyKHEWRaImPuIWaKMQgQN2rHZEgExw4W3SimbWSC1L/jwjFw+xm1ogmKgZfr55j\nhD9cajJjTALn9FnYxnsPEMk5vF0vbbC7Xc0ZPrMastyvM52TUoSudBv1QYFTRhew\ns0QQCrkhHLdWL11ISJPXqbey5Yp9f3RgHBY/xliHEncBZRzmOgUIPHg2aTmpcBlj\nH0rbCkO3oJULeY9hadVUU1geeNjTP6x50RDxw7im3zaMdzB9I5Ip+8dx3oKOhXwd\nnb9DDC5enCoHo+weIe8wPbJm5EjHu/UStHwIs/r55WjadLGnBQsXWuMFAHLsRD9A\nAQIDAQAB\n-----END PUBLIC KEY-----\n"
+    #signature=b"YBFhamA9Es3cgRBOfodx02D50MamWHvfj4xbeUzc/6oP9Ib+RqBT1cb+sUeIM5qBtJm4y4q6NV1F6OyDej/xolAwecQGs1i8DKjZn2Nz/zEkX3pyDPXe2IUqFPR8ksCcadQohwqcfMJGi3wrmEnByxrKaL38lzlbkoaZkYkVZJH/uaQe1VwaQsSjfKKxmClw3eqviYfkJlcDP6gizZocQatRHpN3FftdAL0eGCETN9fxDT53ACM4f8X5+8Jbn1lhVUuXGWWADYMT488Beo9LXfzn3PJNOVNm9pKxGn+AtDKULRp2027EZu8k6xH1AY+aukBYlYm+fz3bph9DFQzQxQ=="
+    signature = decode_base64(signature)
+    print(signature)
+    #message="my_username"
+    try:
+        public_key = serialization.load_pem_public_key(
+        public_key_bytes,
+        backend=default_backend()
+        )
+        
+        public_key.verify(
+            signature,
+            message.encode('utf-8'),
+            padding.PSS(
+                mgf=padding.MGF1(hashes.SHA256()),
+                salt_length=padding.PSS.MAX_LENGTH
+            ),
+            hashes.SHA256()
+        )
+        print("Signature verified successfully.")
+        return True
+    except Exception as e:
+        print("Signature verification failed:", e)
+        return False
+    
 
 
 
