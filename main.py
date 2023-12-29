@@ -34,6 +34,7 @@ except ConnectionFailure:
     print("Database connection failed.")
 db = client.mydatabase
 usercollection=db["USERS"]
+userdata_collection = db['PASSWORDDATA']
 #collection = db["TEST"]
 # The data to be added
 #data = {"message": "HELLO world"}
@@ -199,7 +200,63 @@ def verify_signature(public_key_bytes, signature, message):
         return False
     
 
+@app.route('/saveinfo', methods=['POST'])
+def save_info():
+    try:
 
+                            # Decode base64-encoded fields
+                # Assuming you are sending JSON data in the request body
+        data = request.json
+        verification = decode_base64(data.get('verification'))
+        creator_username = decode_base64(data.get('creator_username'))
+        title = decode_base64(data.get('title'))
+        username = decode_base64(data.get('username'))
+        password = decode_base64(data.get('password'))
+        email = decode_base64(data.get('email'))
+        user_data = usercollection.find_one({'username': creator_username})
+        if user_data:
+            public_key = user_data.get('public_key')
+            # Verify the signed message using the public key
+            print(username.encode('utf-8'))
+            if verify_signature(public_key, verification, creator_username):
+            
+
+
+
+
+                # Check if a record with the same creator_username and title already exists
+                existing_record = userdata_collection.find_one({
+                    'creator_username': creator_username,
+                    'title': title
+                })
+
+                if existing_record:
+                    return jsonify({"error": "Title must be unique for a given creator username"}), 400
+
+                # Creating a login_info record
+                login_info = {
+                    'creator_username': creator_username,
+                    'title': title,
+                    'username': username,
+                    'password': password,
+                    'email': email
+                }
+
+                # Inserting the record into the userdata collection
+                result = userdata_collection.insert_one(login_info)
+
+                if result.inserted_id:
+                    return jsonify({"message": "Data saved successfully"}), 200
+                else:
+                    return jsonify({"message": "Failed to save data"}), 500
+
+            
+            else:
+                return jsonify({"message": "Failed to save data"}), 500
+        else:
+            return jsonify({"message": "Failed to save data"}), 500
+    except Exception as e:
+                return jsonify({"error": str(e)}), 500
 
 
 @app.route('/getkey/')
