@@ -204,8 +204,8 @@ def verify_signature(public_key_bytes, signature, message):
 def save_info():
     try:
 
-                            # Decode base64-encoded fields
-                # Assuming you are sending JSON data in the request body
+        # Decode base64-encoded fields
+        #sending JSON data in the request body
         data = request.json
         verification = decode_base64(data.get('verification'))
         creator_username = decode_base64(data.get('creator_username'))
