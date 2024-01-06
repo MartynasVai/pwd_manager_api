@@ -108,16 +108,19 @@ def login():
             encrypted_private_key = user_data.get('encrypted_private_key')
             iv = user_data.get('iv')
             salt = user_data.get('salt')
+            public_key = user_data.get('public_key')
 
             # Base64 encode the parameters
             encrypted_private_key_b64 = encode_base64(encrypted_private_key).decode('utf-8')
             iv_b64 = encode_base64(iv).decode('utf-8')
             salt_b64 = encode_base64(salt).decode('utf-8')
+            public_key_b64 = encode_base64(public_key).decode('utf-8')
 
             return jsonify({
                 'encrypted_private_key': encrypted_private_key_b64,
                 'iv': iv_b64,
-                'salt': salt_b64
+                'salt': salt_b64,
+                'public_key': public_key_b64
             }), 200
         else:
             # Increment invalid login attempts
@@ -208,11 +211,11 @@ def save_info():
         #sending JSON data in the request body
         data = request.json
         verification = decode_base64(data.get('verification'))
-        creator_username = decode_base64(data.get('creator_username'))
-        title = decode_base64(data.get('title'))
-        username = decode_base64(data.get('username'))
-        password = decode_base64(data.get('password'))
-        email = decode_base64(data.get('email'))
+        creator_username = data.get('creator_username')
+        title = data.get('title')
+        username = data.get('username')
+        password = data.get('password')
+        email = data.get('email')
         user_data = usercollection.find_one({'username': creator_username})
         if user_data:
             public_key = user_data.get('public_key')
@@ -231,7 +234,7 @@ def save_info():
                 })
 
                 if existing_record:
-                    return jsonify({"error": "Title must be unique for a given creator username"}), 400
+                    return jsonify({"error": "Title must be unique"}), 400
 
                 # Creating a login_info record
                 login_info = {
