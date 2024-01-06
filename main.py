@@ -209,15 +209,25 @@ def save_info():
 
         # Decode base64-encoded fields
         #sending JSON data in the request body
-        data = request.json
-        verification = decode_base64(data.get('verification'))
+        print("1")
+        # Get the JSON data from the request
+        json_data = request.get_json()
+
+        # Extract user data from JSON
+        json_data_str = json_data.get('json_data')
+        data = json.loads(json_data_str)
+
+        verification = data.get('verification')
         creator_username = data.get('creator_username')
         title = data.get('title')
         username = data.get('username')
         password = data.get('password')
         email = data.get('email')
+        print(creator_username)
         user_data = usercollection.find_one({'username': creator_username})
+        print("2")
         if user_data:
+            print("3")
             public_key = user_data.get('public_key')
             # Verify the signed message using the public key
             print(username.encode('utf-8'))
@@ -251,13 +261,13 @@ def save_info():
                 if result.inserted_id:
                     return jsonify({"message": "Data saved successfully"}), 200
                 else:
-                    return jsonify({"message": "Failed to save data"}), 500
+                    return jsonify({"message": "Failed to save data1"}), 500
 
             
             else:
-                return jsonify({"message": "Failed to save data"}), 500
+                return jsonify({"message": "Failed to save data2"}), 500
         else:
-            return jsonify({"message": "Failed to save data"}), 500
+            return jsonify({"message": "Failed to save data3"}), 500
     except Exception as e:
                 return jsonify({"error": str(e)}), 500
 
