@@ -270,6 +270,40 @@ def save_info():
             return jsonify({"message": "Failed to save data3"}), 500
     except Exception as e:
                 return jsonify({"error": str(e)}), 500
+    
+@app.route('/read_info', methods=['POST'])
+def read_info():
+    try:
+        
+        json_data = request.get_json()
+
+        # Extract user data from JSON
+        json_data_str = json_data.get('json_data')
+        data = json.loads(json_data_str)
+
+        verification = data.get('verification')
+        username = data.get('username')
+        user_data = usercollection.find_one({'username': username})
+        if user_data:
+            print("a")
+
+
+
+        
+
+
+
+
+
+
+        else:
+            return jsonify({"message": "Failed to read data3"}), 500
+    except Exception as e:
+        print("Signature verification failed:", e)
+        return False
+    pass
+
+
 
 
 @app.route('/getkey/')
