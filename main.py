@@ -203,13 +203,8 @@ def verify_signature(public_key_bytes, signature, message):
 @app.route('/saveinfo', methods=['POST'])
 def save_info():
     try:
-
-        # Decode base64-encoded fields
-        #sending JSON data in the request body
-        print("1")
         # Get the JSON data from the request
         json_data = request.get_json()
-
         # Extract user data from JSON
         json_data_str = json_data.get('json_data')
         data = json.loads(json_data_str)
@@ -230,10 +225,6 @@ def save_info():
             print(username.encode('utf-8'))
             if verify_signature(public_key, verification, creator_username):
             
-
-
-
-
                 # Check if a record with the same creator_username and title already exists
                 existing_record = userdata_collection.find_one({
                     'creator_username': creator_username,
@@ -260,7 +251,6 @@ def save_info():
                 else:
                     return jsonify({"message": "Failed to save data1"}), 500
 
-            
             else:
                 return jsonify({"message": "Failed to save data2"}), 500
         else:
@@ -298,7 +288,8 @@ def read_info():
                 for record in data_list:
                     if 'field_to_encode' in record:
                         record['field_to_encode'] = base64.b64encode(record['password'].encode('utf-8')).decode('utf-8')
-                record['_id'] = str(record['_id'])
+                    elif '_id'in record:
+                        record['_id'] = str(record['_id'])
 
                 # Return the data as JSON
                 return jsonify({"data": data_list}), 200
