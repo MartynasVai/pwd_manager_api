@@ -135,9 +135,6 @@ def login():
         user_data = usercollection.find_one({'username': username})
         if user_data:
             public_key = user_data.get('public_key')
-            print("FROM DATABASE \n\n\n\n\n\n\n\n\n\n")
-            print(public_key)
-            print("FROM DATABASE \n\n\n\n\n\n\n\n\n\n")
 
             # Verify the signed message using the public key
             print(username.encode('utf-8'))
@@ -274,7 +271,7 @@ def save_info():
 @app.route('/read_info', methods=['POST'])
 def read_info():
     try:
-        
+        print("1")
         json_data = request.get_json()
 
         # Extract user data from JSON
@@ -286,21 +283,36 @@ def read_info():
         user_data = usercollection.find_one({'username': username})
         if user_data:
             print("a")
+            print("\n\n\n\n\n\n\n\nHERE1")
+            public_key = user_data.get('public_key')
+            print("\n\n\n\n\n\n\n\nheressssssssssssssssssssssssssss2")
+            # Verify the signed message using the public key
+            print(username.encode('utf-8'))
+            if verify_signature(public_key, verification, username):
+                print("\n\n\n\n\n\n\n\nVERIFIED")
+                data_records = userdata_collection.find({'creator_username': username})
+                # Convert MongoDB cursor to a list of dictionaries
+                data_list = list(data_records)
+
+                # Encode specific fields in Base64
+                for record in data_list:
+                    if 'field_to_encode' in record:
+                        record['field_to_encode'] = base64.b64encode(record['password'].encode('utf-8')).decode('utf-8')
+                record['_id'] = str(record['_id'])
+
+                # Return the data as JSON
+                return jsonify({"data": data_list}), 200
 
 
 
-        
-
-
-
-
-
+            else:
+                return jsonify({"message": "Failed to read data3"}), 500
 
         else:
             return jsonify({"message": "Failed to read data3"}), 500
     except Exception as e:
         print("Signature verification failed:", e)
-        return False
+        return jsonify({"message": "Failed to verify"}), 500
     pass
 
 
