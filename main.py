@@ -272,14 +272,14 @@ def read_info():
         username = data.get('username')
         user_data = usercollection.find_one({'username': username})
         if user_data:
-            print("a")
-            print("\n\n\n\n\n\n\n\nHERE1")
+            #print("a")
+            #print("\n\n\n\n\n\n\n\nHERE1")
             public_key = user_data.get('public_key')
-            print("\n\n\n\n\n\n\n\nheressssssssssssssssssssssssssss2")
+            #print("\n\n\n\n\n\n\n\nheressssssssssssssssssssssssssss2")
             # Verify the signed message using the public key
-            print(username.encode('utf-8'))
+            #print(username.encode('utf-8'))
             if verify_signature(public_key, verification, username):
-                print("\n\n\n\n\n\n\n\nVERIFIED")
+                #print("\n\n\n\n\n\n\n\nVERIFIED")
                 data_records = userdata_collection.find({'creator_username': username})
                 # Convert MongoDB cursor to a list of dictionaries
                 data_list = list(data_records)
@@ -333,13 +333,13 @@ def register():
     password_hash = decode_base64(user_data.get('password_hash'))
     password_salt = decode_base64(user_data.get('password_salt'))
 
-    print(password_salt)
-    print("/n\n ^^^^^ password hash ")
-
-
-    print(password_hash)
-    print("/n\n ^^^^^ password hash ")
-
+    #print(password_salt)
+    #print("/n\n ^^^^^ password hash ")
+#
+#
+    #print(password_hash)
+    #print("/n\n ^^^^^ password hash ")
+#
     password_hash=hash_with_pepper(password_hash,PEPPER)
     print(password_hash)
     print("/n\n ^^^^^ password hash ")
@@ -369,6 +369,110 @@ def register():
         return jsonify({'message': 'Registration successful!'}), 200
     else:
         return jsonify({'message': 'Registration failed. Please try again later.'}), 500
+
+@app.route('/edit_info', methods=['POST'])
+def edit_info():
+    try:
+        # Get the JSON data from the request
+        json_data = request.get_json()
+        # Extract user data from JSON
+        json_data_str = json_data.get('json_data')
+        data = json.loads(json_data_str)
+
+        verification = data.get('verification')
+        creator_username = data.get('creator_username')
+        title = data.get('title')
+        original_title = data.get('original_title')  # New parameter for the original title
+
+        user_data = usercollection.find_one({'username': creator_username})
+
+        if user_data:
+            public_key = user_data.get('public_key')
+            # Verify the signed message using the public key
+            if verify_signature(public_key, verification, creator_username):
+            
+                # Check if the original record exists
+                existing_record = userdata_collection.find_one({
+                    'creator_username': creator_username,
+                    'title': original_title
+                })
+
+                if not existing_record:
+                    return jsonify({"error": "Original record not found"}), 404
+
+                # Check if the new title is unique (excluding the original record)
+                if title != original_title:
+                    duplicate_record = userdata_collection.find_one({
+                        'creator_username': creator_username,
+                        'title': title
+                    })
+                    if duplicate_record:
+                        return jsonify({"error": "Title must be unique"}), 400
+
+                # Update the existing record
+                result = userdata_collection.update_one(
+                    {'creator_username': creator_username, 'title': original_title},
+                    {'$set': {
+                        'title': title,
+                        'username': data.get('username'),
+                        'password': data.get('password'),
+                        'email': data.get('email')
+                    }}
+                )
+
+                if result.modified_count > 0:
+                    return jsonify({"message": "Data updated successfully"}), 200
+                else:
+                    return jsonify({"message": "Failed to update data"}), 500
+
+            else:
+                return jsonify({"message": "Failed to update data: Verification failed"}), 500
+        else:
+            return jsonify({"message": "Failed to update data: User not found"}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/delete_info', methods=['POST'])
+def delete_info():
+    try:
+        # Get the JSON data from the request
+        json_data = request.get_json()
+        # Extract user data from JSON
+        json_data_str = json_data.get('json_data')
+        data = json.loads(json_data_str)
+        # Extract user data from JSON
+        verification = data.get('verification')
+        creator_username = data.get('creator_username')
+        title = data.get('title')
+
+        # Retrieve the user's public key from the database
+        user_data = usercollection.find_one({'username': creator_username})
+        print(creator_username)
+        if user_data:
+            public_key = user_data.get('public_key')
+
+            # Verify the signed message using the public key
+            if verify_signature(public_key, verification, creator_username):
+
+                # Delete the record based on the provided creator_username and title
+                result = userdata_collection.delete_one({'creator_username': creator_username, 'title': title})
+
+
+                if result.deleted_count > 0:
+                    return jsonify({"message": "Record deleted successfully"}), 200
+                else:
+                    return jsonify({"error": "No matching record found"}), 404
+
+            else:
+                print("verification failed")
+                return jsonify({"error": "Failed to delete data: Verification failed"}), 500
+        else:
+            print("user not found")
+            return jsonify({"error": "Failed to delete data: User not found"}), 500
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route('/')
 def index():
