@@ -15,6 +15,7 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
+from bson import ObjectId
 
         # Replace the placeholders with your actual valuess
 MONGOHOST = "monorail.proxy.rlwy.net"
@@ -23,7 +24,8 @@ MONGOUSER = "mongo"
 MONGOPASSWORD = "ChghdfdGBbChhfCCh-DeDBCd26A53GbC"
 PEPPER = "917fb97bd62f96e619f4da5036f777c4"
 # Create a connection string
-connection_string = f"mongodb://{MONGOUSER}:{MONGOPASSWORD}@{MONGOHOST}:{MONGOPORT}"
+#connection_string = f"mongodb://{MONGOUSER}:{MONGOPASSWORD}@{MONGOHOST}:{MONGOPORT}"
+connection_string = f"mongodb+srv://martynasvai263:38baby@cluster0.gwmoddu.mongodb.net/"
 try:
     # Create a MongoClient instance
     client = MongoClient(connection_string)
@@ -115,12 +117,14 @@ def login():
             iv_b64 = encode_base64(iv).decode('utf-8')
             salt_b64 = encode_base64(salt).decode('utf-8')
             public_key_b64 = encode_base64(public_key).decode('utf-8')
+            email=user_data.get('email')
 
             return jsonify({
                 'encrypted_private_key': encrypted_private_key_b64,
                 'iv': iv_b64,
                 'salt': salt_b64,
-                'public_key': public_key_b64
+                'public_key': public_key_b64,
+                'email':email
             }), 200
         else:
             # Increment invalid login attempts
@@ -341,8 +345,6 @@ def register():
     #print("/n\n ^^^^^ password hash ")
 #
     password_hash=hash_with_pepper(password_hash,PEPPER)
-    print(password_hash)
-    print("/n\n ^^^^^ password hash ")
 
     # Check if the username already exists in the database
     existing_user = usercollection.find_one({'username': username})
@@ -515,7 +517,79 @@ def delete_acc():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/edit_acc', methods=['POST'])
+def edit_acc():
+    try:
+        print("edit1")
+        # Get the JSON data from the request
+        json_data = request.get_json()
+        # Extract user data from JSON
+        json_data_str = json_data.get('json_data')
+        data = json.loads(json_data_str)
+        print(data)
 
+        # Extract user data from JSON
+        verification = data.get('verification')
+        creator_username = data.get('creator_username')
+        print(creator_username)
+
+
+        changed_records = data.get('changed_records')
+
+        # Retrieve the user's public key from the database
+        user_data = usercollection.find_one({'username': creator_username})
+        
+        if user_data:
+            print("edit2")
+            public_key = user_data.get('public_key')
+
+            # Verify the signed message using the public key
+            if verify_signature(public_key, verification, creator_username):
+            
+                password_hash=decode_base64(data.get('password_hash'))
+                password_hash=hash_with_pepper(password_hash,PEPPER)
+
+                # Update user account fields
+                result = usercollection.update_one(
+                    {'username': creator_username},
+                    {'$set': {
+                        'username': data.get('username'),
+                        'email': data.get('email'),
+                        'salt': decode_base64(data.get('salt')),
+                        'iv': decode_base64(data.get('iv')),
+                        'encrypted_private_key': decode_base64(data.get('encrypted_private_key')),
+                        'public_key': decode_base64(data.get('public_key')),
+                        'password_hash': password_hash,
+                        'password_salt': decode_base64(data.get('password_salt'))
+                    }}
+                )
+
+                changed_record_data = data.get('changed_record_data')
+                if changed_record_data is not None:
+                    # Update associated records in userdata_collection
+                    for record in changed_record_data:
+                        print("\n\n\nRECORD SHOULD CHANGE AAAA\n\n\n")
+                        userdata_collection.update_one(
+                            {'_id': ObjectId(record['_id'])},
+                            {'$set': {
+                                'creator_username': record['creator_username'],
+                                'password': record['password'],
+                            }}
+                        )
+
+                if result.modified_count > 0:
+                    return jsonify({"message": "User account and associated records updated successfully"}), 200
+                else:
+                    return jsonify({"error": "Failed to update user account"}), 500
+
+            else:
+                return jsonify({"error": "Failed to update account: Verification failed"}), 500
+        else:
+            return jsonify({"error": "Failed to update account: User not found"}), 500
+
+    except Exception as e:
+        print(e)
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route('/')
