@@ -474,6 +474,50 @@ def delete_info():
         return jsonify({"error": str(e)}), 500
 
 
+
+@app.route('/delete_acc', methods=['POST'])
+def delete_acc():
+    try:
+        # Get the JSON data from the request
+        json_data = request.get_json()
+        # Extract user data from JSON
+        json_data_str = json_data.get('json_data')
+        data = json.loads(json_data_str)
+
+        verification = data.get('verification')
+        creator_username = data.get('creator_username')
+
+        # Retrieve the user's public key from the database
+        user_data = usercollection.find_one({'username': creator_username})
+
+        if user_data:
+            public_key = user_data.get('public_key')
+
+            # Verify the signed message using the public key
+            if verify_signature(public_key, verification, creator_username):
+
+                # Delete the user account
+                user_result = usercollection.delete_one({'username': creator_username})
+                
+                # Delete all records in userdata_collection with the same creator_username
+                userdata_result = userdata_collection.delete_many({'creator_username': creator_username})
+
+                if user_result.deleted_count > 0:
+                    return jsonify({"message": "User account and associated records deleted successfully"}), 200
+                else:
+                    return jsonify({"error": "No matching user account found"}), 404
+
+            else:
+                return jsonify({"error": "Failed to delete account: Verification failed"}), 500
+        else:
+            return jsonify({"error": "Failed to delete account: User not found"}), 500
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+
+
 @app.route('/')
 def index():
     
