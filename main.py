@@ -233,13 +233,13 @@ def create_reminder():
             # Verify the signed message using the public key
             ##print(username.encode('utf-8'))
             if verify_signature(public_key, verification, creator_username):
-            
+                print("gothere1")
                 # Check if a record with the same creator_username and title already exists
                 existing_record = reminder_collection.find_one({
                     'creator_id': user_id,
                     'title': title
                 })
-
+                print("gothere2")
                 if existing_record:
                     return jsonify({"error": "Title must be unique"}), 400
 
@@ -251,7 +251,7 @@ def create_reminder():
                     'date': date,
                     'time': time
                 }
-
+                print("gothere3")
                 # Inserting the record into the userdata collection
                 result = reminder_collection.insert_one(login_info)
 
