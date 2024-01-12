@@ -21,15 +21,19 @@ from bson import ObjectId
 from mailjet_rest import Client
 
         # Replace the placeholders with your actual valuess
-MONGOHOST = "monorail.proxy.rlwy.net"
-MONGOPORT = "55890"
-MONGOUSER = "mongo"
-MONGOPASSWORD = "ChghdfdGBbChhfCCh-DeDBCd26A53GbC"
-PEPPER = "917fb97bd62f96e619f4da5036f777c4"
-MAILJET = mailjet = Client(auth=('3eb96ef7dc01ee697ec2f668793a7bf7', 'ba3b11bd2523fe769cfb80a54135ba06'))
+
+MONGOHOST = os.environ.get('MONGOHOST')
+MONGOPORT = os.environ.get("MONGOPORT")
+MONGOUSER = os.environ.get("MONGOUSER")
+MONGOPASSWORD = os.environ.get("MONGOPASSWORD")
+PEPPER = os.environ.get("PEPPER")
+MAILJET1= os.environ.get("MAILJET1")
+MAILJET2= os.environ.get("MAILJET2")
+MAILJET = mailjet = Client(auth=(MAILJET1, MAILJET2))
+
 # Create a connection string
-#connection_string = f"mongodb://{MONGOUSER}:{MONGOPASSWORD}@{MONGOHOST}:{MONGOPORT}"
-connection_string = f"mongodb+srv://martynasvai263:38baby@cluster0.gwmoddu.mongodb.net/"
+connection_string = f"mongodb://{MONGOUSER}:{MONGOPASSWORD}@{MONGOHOST}:{MONGOPORT}"
+#connection_string = f"mongodb+srv://martynasvai263:38baby@cluster0.gwmoddu.mongodb.net/"
 try:
     # Create a MongoClient instance
     client = MongoClient(connection_string)
