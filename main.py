@@ -264,28 +264,35 @@ def create_reminder():
 @app.route('/edit_reminder', methods=['POST'])
 def edit_reminder():
     try:
-        # Get the JSON data from the request
         json_data = request.get_json()
         # Extract user data from JSON
-        verification = json_data.get('verification')
-        creator_username = json_data.get('creator_username')
-        title = json_data.get('title')
-        new_title = json_data.get('new_title')  # New parameter for the new title
-        text = json_data.get('text')
-        date = json_data.get('date')
-        time = json_data.get('time')
+        json_data_str = json_data.get('json_data')
+        data = json.loads(json_data_str) 
 
-        user_data = usercollection.find_one({'username': creator_username})
+        verification = data.get('verification')
+        creator_id = data.get('creator_id')
+        title = data.get('title')
+        new_title = data.get('new_title')  # New parameter for the new title
+        text = data.get('text')
+        date = data.get('date')
+        time = data.get('time')
+        username= data.get('username')
+
+        creator_id=ObjectId(creator_id)
+
+        print("EDIT1")
+
+        user_data = usercollection.find_one({'_id': creator_id})
 
         if user_data:
             public_key = user_data.get('public_key')
 
             # Verify the signed message using the public key
-            if verify_signature(public_key, verification, creator_username):
+            if verify_signature(public_key, verification, username):
             
                 # Check if the original record exists
                 existing_record = reminder_collection.find_one({
-                    'creator_username': creator_username,
+                    'creator_id': creator_id,
                     'title': title
                 })
 
@@ -295,7 +302,7 @@ def edit_reminder():
                 # Check if the new title is unique (excluding the original record)
                 if new_title != title:
                     duplicate_record = reminder_collection.find_one({
-                        'creator_username': creator_username,
+                        'creator_id': creator_id,
                         'title': new_title
                     })
                     if duplicate_record:
@@ -303,7 +310,7 @@ def edit_reminder():
 
                 # Update the existing record
                 result = reminder_collection.update_one(
-                    {'creator_username': creator_username, 'title': title},
+                    {'creator_id': creator_id, 'title': title},
                     {'$set': {
                         'title': new_title,
                         'text': text,
@@ -315,12 +322,18 @@ def edit_reminder():
                 if result.modified_count > 0:
                     return jsonify({"message": "Reminder updated successfully"}), 200
                 else:
+                    print("FAIL1")
                     return jsonify({"message": "Failed to update reminder"}), 500
+                    
 
             else:
+                print("FAIL2")
                 return jsonify({"message": "Failed to update reminder: Verification failed"}), 500
+            
         else:
+            print("FAIL3")
             return jsonify({"message": "Failed to update reminder: User not found"}), 500
+            
         
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -420,12 +433,10 @@ def read_info():
                 #print(reminder_records)
                 for record in reminder_records:
                     if '_id'in record:
-                        print("zaxxxxss")
                         record['_id'] = str(record['_id'])
                     if 'creator_id' in record:
-                        print("zaxxxxss2")
                         record['creator_id'] = str(record['creator_id'])
-                print(reminder_records)
+                #print(reminder_records)
 
                 # Return the data as JSON
                 return jsonify({"data": data_list,"reminder_records": reminder_records}), 200
@@ -636,6 +647,12 @@ def delete_acc():
                 # Delete all records in userdata_collection with the same creator_username
                 userdata_result = userdata_collection.delete_many({'creator_username': creator_username})
 
+                user_id=user_data.get('_id')
+
+                userreminders_result = reminder_collection.delete_many({'creator_id': user_id})
+
+                
+
                 if user_result.deleted_count > 0:
                     return jsonify({"message": "User account and associated records deleted successfully"}), 200
                 else:
@@ -648,6 +665,47 @@ def delete_acc():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route('/delete_reminder', methods=['POST'])
+def delete_reminder():
+    try:
+        # Get the JSON data from the request
+        json_data = request.get_json()
+        # Extract user data from JSON
+        json_data_str = json_data.get('json_data')
+        data = json.loads(json_data_str)
+
+        verification = data.get('verification')
+        creator_username = data.get('username')
+        reminder_id = data.get('_id')
+
+        user_data = usercollection.find_one({'username': creator_username})
+
+        if user_data:
+            public_key = user_data.get('public_key')
+
+            # Verify the signed message using the public key
+            if verify_signature(public_key, verification, creator_username):
+            
+                # Delete the record
+                result = reminder_collection.delete_one({
+                    '_id': ObjectId(reminder_id)
+                })
+
+                if result.deleted_count > 0:
+                    return jsonify({"message": "Reminder deleted successfully"}), 200
+                else:
+                    return jsonify({"message": "Failed to delete reminder"}), 500
+
+            else:
+                return jsonify({"message": "Failed to delete reminder: Verification failed"}), 500
+        else:
+            return jsonify({"message": "Failed to delete reminder: User not found"}), 500
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route('/edit_acc', methods=['POST'])
 def edit_acc():
