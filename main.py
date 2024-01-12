@@ -340,18 +340,30 @@ def read_info():
             if verify_signature(public_key, verification, username):
                 #print("\n\n\n\n\n\n\n\nVERIFIED")
                 data_records = userdata_collection.find({'creator_username': username})
-                # Convert MongoDB cursor to a list of dictionaries
+                # Convert MongoDB cursor to a list of dictionaries user_data.get('_id')
                 data_list = list(data_records)
 
+                reminder_records = reminder_collection.find({'creator_id':user_data.get('_id')})
+                reminder_records=list(reminder_records)
                 # Encode specific fields in Base64
                 for record in data_list:
                     if 'field_to_encode' in record:
                         record['field_to_encode'] = base64.b64encode(record['password'].encode('utf-8')).decode('utf-8')
-                    elif '_id'in record:
+                        
+                    if '_id'in record:
                         record['_id'] = str(record['_id'])
+                #print(reminder_records)
+                for record in reminder_records:
+                    if '_id'in record:
+                        print("zaxxxxss")
+                        record['_id'] = str(record['_id'])
+                    if 'creator_id' in record:
+                        print("zaxxxxss2")
+                        record['creator_id'] = str(record['creator_id'])
+                print(reminder_records)
 
                 # Return the data as JSON
-                return jsonify({"data": data_list}), 200
+                return jsonify({"data": data_list,"reminder_records": reminder_records}), 200
 
 
 
