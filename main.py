@@ -223,14 +223,17 @@ def create_reminder():
         data = json.loads(json_data_str) 
         verification = data.get('verification')
         creator_username = data.get('creator_username')
+        print("gothere verification and username")
         title = data.get('title')
         text = data.get('text')
         date = data.get('date')
         time = data.get('time')
+        print("gothere reminderdata")
         user_data = usercollection.find_one({'username': creator_username})
+        print("userdata")
         if user_data:
             public_key = user_data.get('public_key')
-            user_id = user_data.get['_id']
+            user_id = user_data.get('_id')
             # Verify the signed message using the public key
             ##print(username.encode('utf-8'))
             if verify_signature(public_key, verification, creator_username):
