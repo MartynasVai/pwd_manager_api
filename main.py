@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, redirect, url_for, request, session
+from flask import Flask, jsonify, request, session
 import os
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure
@@ -15,9 +15,10 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
-import sched
-import time
+from apscheduler.schedulers.background import BackgroundScheduler
+from datetime import datetime
 from bson import ObjectId
+from mailjet_rest import Client
 
         # Replace the placeholders with your actual valuess
 MONGOHOST = "monorail.proxy.rlwy.net"
@@ -25,6 +26,7 @@ MONGOPORT = "55890"
 MONGOUSER = "mongo"
 MONGOPASSWORD = "ChghdfdGBbChhfCCh-DeDBCd26A53GbC"
 PEPPER = "917fb97bd62f96e619f4da5036f777c4"
+MAILJET = mailjet = Client(auth=('3eb96ef7dc01ee697ec2f668793a7bf7', 'ba3b11bd2523fe769cfb80a54135ba06'))
 # Create a connection string
 #connection_string = f"mongodb://{MONGOUSER}:{MONGOPASSWORD}@{MONGOHOST}:{MONGOPORT}"
 connection_string = f"mongodb+srv://martynasvai263:38baby@cluster0.gwmoddu.mongodb.net/"
@@ -223,13 +225,14 @@ def create_reminder():
         user_data = usercollection.find_one({'username': creator_username})
         if user_data:
             public_key = user_data.get('public_key')
+            user_id = user_data.get['_id']
             # Verify the signed message using the public key
             #print(username.encode('utf-8'))
             if verify_signature(public_key, verification, creator_username):
             
                 # Check if a record with the same creator_username and title already exists
                 existing_record = reminder_collection.find_one({
-                    'creator_username': creator_username,
+                    'creator_id': user_id,
                     'title': title
                 })
 
@@ -783,14 +786,60 @@ def edit_acc():
         print(e)
         return jsonify({"error": str(e)}), 500
     
-scheduler = sched.scheduler(time.time, time.sleep)
-
 def my_hourly_task():
+    print("Checking for overdue reminders...")
+
+    # Get the current date and time
+    current_datetime = datetime.now()
+
+    # Retrieve all records from the MongoDB collection
+    all_reminders = reminder_collection.find()
+
+    # Filter and print overdue reminders
+    for reminder in all_reminders:
+        reminder_date = datetime.strptime(reminder["date"], "%Y-%m-%d").date()
+        reminder_time = datetime.strptime(reminder["time"], "%H:%M") if "time" in reminder else None
+
+        if (
+            reminder_date < current_datetime.date() or
+            (reminder_date == current_datetime.date() and reminder_time and reminder_time.time() < current_datetime.time())
+        ):
+            print("Found:", reminder)
+            remind(reminder['creator_id'],reminder['text'],reminder['title'])
+            reminder_collection.delete_one({'_id': reminder['_id']})
+    
     print("This task runs every hour!")
 
-    # Schedule the next task after completion
-    scheduler.enter(36, 1, my_hourly_task, ())
-scheduler.enter(0, 1, my_hourly_task, ())
+def remind(userid,text,title):
+
+    user_data = usercollection.find_one({'_id': userid})
+
+    if user_data:
+        email = user_data.get('email')
+
+        data = {
+            'FromEmail': 'xmartissx@gmail.com',
+            'FromName': 'Slaptažodžių valdymo sistema',
+            'Subject': 'Priminimas',
+            'Text-part': str(text),
+            'Html-part': '<h1>'+text+'<h1>',
+            'Recipients': [
+                {'Email': email}
+            ]
+        }
+
+        result = mailjet.send.create(data=data)
+        print(result.status_code)
+        print(result.json())
+
+
+
+    pass
+
+
+# Create a scheduler
+scheduler = BackgroundScheduler()
+scheduler.add_job(my_hourly_task, 'interval',minutes=1) #hours=1)
 @app.route('/')
 def index():
     
@@ -803,6 +852,6 @@ if __name__ == '__main__':
 
 
 
-    
+    scheduler.start()
     app.run(debug=True, port=os.getenv("PORT", default=5000))
     
