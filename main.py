@@ -37,6 +37,7 @@ except ConnectionFailure:
 db = client.mydatabase
 usercollection=db["USERS"]
 userdata_collection = db['PASSWORDDATA']
+reminder_collection = db['REMINDERS']
 #collection = db["TEST"]
 # The data to be added
 #data = {"message": "HELLO world"}
@@ -202,6 +203,62 @@ def verify_signature(public_key_bytes, signature, message):
     except Exception as e:
         print("Signature verification failed:", e)
         return False
+
+@app.route('/creat_ereminder', methods=['POST'])
+def creat_ereminder(): 
+    try:
+        # Get the JSON data from the request
+        json_data = request.get_json()
+        # Extract user data from JSON
+        json_data_str = json_data.get('json_data')
+        data = json.loads(json_data_str) 
+        verification = data.get('verification')
+        creator_username = data.get('creator_username')
+        title = data.get('title')
+        text = data.get('text')
+        date = data.get('date')
+        time = data.get('time')
+        user_data = usercollection.find_one({'username': creator_username})
+        if user_data:
+            public_key = user_data.get('public_key')
+            # Verify the signed message using the public key
+            #print(username.encode('utf-8'))
+            if verify_signature(public_key, verification, creator_username):
+            
+                # Check if a record with the same creator_username and title already exists
+                existing_record = reminder_collection.find_one({
+                    'creator_username': creator_username,
+                    'title': title
+                })
+
+                if existing_record:
+                    return jsonify({"error": "Title must be unique"}), 400
+
+                # Creating a login_info record
+                login_info = {
+                    'creator_id': user_data.get('_id'),
+                    'title': title,
+                    'text': text,
+                    'date': date,
+                    'time': time
+                }
+
+                # Inserting the record into the userdata collection
+                result = reminder_collection.insert_one(login_info)
+
+                if result.inserted_id:
+                    return jsonify({"message": "Data saved successfully"}), 200
+                else:
+                    return jsonify({"message": "Failed to save data1"}), 500
+
+            else:
+                return jsonify({"message": "Failed to save data2"}), 500
+        else:
+            return jsonify({"message": "Failed to save data3"}), 500
+
+
+    except Exception as e:
+                return jsonify({"error": str(e)}), 500
     
 
 @app.route('/saveinfo', methods=['POST'])
@@ -221,9 +278,7 @@ def save_info():
         email = data.get('email')
         print(creator_username)
         user_data = usercollection.find_one({'username': creator_username})
-        print("2")
         if user_data:
-            print("3")
             public_key = user_data.get('public_key')
             # Verify the signed message using the public key
             print(username.encode('utf-8'))
