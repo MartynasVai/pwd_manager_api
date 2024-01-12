@@ -204,8 +204,8 @@ def verify_signature(public_key_bytes, signature, message):
         print("Signature verification failed:", e)
         return False
 
-@app.route('/creat_ereminder', methods=['POST'])
-def creat_ereminder(): 
+@app.route('/create_reminder', methods=['POST'])
+def create_reminder(): 
     try:
         # Get the JSON data from the request
         json_data = request.get_json()
@@ -260,6 +260,71 @@ def creat_ereminder():
     except Exception as e:
                 return jsonify({"error": str(e)}), 500
     
+
+@app.route('/edit_reminder', methods=['POST'])
+def edit_reminder():
+    try:
+        # Get the JSON data from the request
+        json_data = request.get_json()
+        # Extract user data from JSON
+        verification = json_data.get('verification')
+        creator_username = json_data.get('creator_username')
+        title = json_data.get('title')
+        new_title = json_data.get('new_title')  # New parameter for the new title
+        text = json_data.get('text')
+        date = json_data.get('date')
+        time = json_data.get('time')
+
+        user_data = usercollection.find_one({'username': creator_username})
+
+        if user_data:
+            public_key = user_data.get('public_key')
+
+            # Verify the signed message using the public key
+            if verify_signature(public_key, verification, creator_username):
+            
+                # Check if the original record exists
+                existing_record = reminder_collection.find_one({
+                    'creator_username': creator_username,
+                    'title': title
+                })
+
+                if not existing_record:
+                    return jsonify({"error": "Original record not found"}), 404
+
+                # Check if the new title is unique (excluding the original record)
+                if new_title != title:
+                    duplicate_record = reminder_collection.find_one({
+                        'creator_username': creator_username,
+                        'title': new_title
+                    })
+                    if duplicate_record:
+                        return jsonify({"error": "Title must be unique"}), 400
+
+                # Update the existing record
+                result = reminder_collection.update_one(
+                    {'creator_username': creator_username, 'title': title},
+                    {'$set': {
+                        'title': new_title,
+                        'text': text,
+                        'date': date,
+                        'time': time
+                    }}
+                )
+
+                if result.modified_count > 0:
+                    return jsonify({"message": "Reminder updated successfully"}), 200
+                else:
+                    return jsonify({"message": "Failed to update reminder"}), 500
+
+            else:
+                return jsonify({"message": "Failed to update reminder: Verification failed"}), 500
+        else:
+            return jsonify({"message": "Failed to update reminder: User not found"}), 500
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route('/saveinfo', methods=['POST'])
 def save_info():
