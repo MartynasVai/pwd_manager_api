@@ -217,6 +217,7 @@ def create_reminder():
     try:
         # Get the JSON data from the request
         json_data = request.get_json()
+        print("gothere0")
         # Extract user data from JSON
         json_data_str = json_data.get('json_data')
         data = json.loads(json_data_str) 
