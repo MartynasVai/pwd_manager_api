@@ -217,20 +217,16 @@ def create_reminder():
     try:
         # Get the JSON data from the request
         json_data = request.get_json()
-        print("gothere0")
         # Extract user data from JSON
         json_data_str = json_data.get('json_data')
         data = json.loads(json_data_str) 
         verification = data.get('verification')
         creator_username = data.get('creator_username')
-        print("gothere verification and username")
         title = data.get('title')
         text = data.get('text')
         date = data.get('date')
         time = data.get('time')
-        print("gothere reminderdata")
         user_data = usercollection.find_one({'username': creator_username})
-        print("userdata")
         if user_data:
             public_key = user_data.get('public_key')
             user_id = user_data.get('_id')
@@ -816,10 +812,10 @@ def my_hourly_task():
             remind(reminder['creator_id'],reminder['text'],reminder['title'])
             reminder_collection.delete_one({'_id': reminder['_id']})
     
-    #print("This task runs every hour!")
+    print("This task runs every hour!")
 
 def remind(userid,text,title):
-
+    print("should_remind")
     user_data = usercollection.find_one({'_id': userid})
 
     if user_data:
@@ -837,8 +833,8 @@ def remind(userid,text,title):
         }
 
         result = mailjet.send.create(data=data)
-        #print(result.status_code)
-        #print(result.json())
+        print(result.status_code)
+        print(result.json())
 
 
 
