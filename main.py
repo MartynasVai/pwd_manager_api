@@ -851,11 +851,11 @@ def index():
     return jsonify("index")
 
 
-@app.route('/cron')
+@app.route('/cron', methods=['POST'])
 def cron():
-    
-    
     print("cronning :)")
+    return jsonify({"message": "cron"}), 200
+    
 
 
 if __name__ == '__main__':
