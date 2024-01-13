@@ -854,6 +854,7 @@ def index():
 @app.route('/cron', methods=['POST'])
 def cron():
     print("cronning :)")
+    my_hourly_task()
     return jsonify({"message": "cron"}), 200
     
 
