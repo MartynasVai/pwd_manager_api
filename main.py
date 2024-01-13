@@ -851,6 +851,13 @@ def index():
     return jsonify("index")
 
 
+@app.route('/cron')
+def index():
+    
+    
+    print("cronning :)")
+
+
 if __name__ == '__main__':
 
 
