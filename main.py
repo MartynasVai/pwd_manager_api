@@ -852,7 +852,7 @@ def index():
 
 
 @app.route('/cron')
-def index():
+def cron():
     
     
     print("cronning :)")
