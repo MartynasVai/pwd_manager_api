@@ -33,7 +33,6 @@ MAILJET = mailjet = Client(auth=(MAILJET1, MAILJET2))
 
 # Create a connection string
 connection_string = f"mongodb://{MONGOUSER}:{MONGOPASSWORD}@{MONGOHOST}:{MONGOPORT}"
-#connection_string = f"mongodb+srv://martynasvai263:38baby@cluster0.gwmoddu.mongodb.net/"
 try:
     # Create a MongoClient instance
     client = MongoClient(connection_string)
